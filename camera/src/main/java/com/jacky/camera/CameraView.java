@@ -21,6 +21,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * Created by lhm05 on 2016/08/03.
@@ -35,6 +37,8 @@ public class CameraView extends SurfaceView
     final private File sdRoot;
     private String path;
     private int picWidth,picHeight,pvWidth,pvHeight;
+    private ContinueFoucs continueFoucs;
+    private CameraTimerTask mTimerTask;
 
 
     public CameraView(Context context, AttributeSet attrs) {
@@ -70,9 +74,32 @@ public class CameraView extends SurfaceView
             try {
                 camera.setPreviewDisplay(surfaceHolder);
 
-             } catch (IOException e) {
-                e.printStackTrace();
-            }
+                Camera.Parameters parameters=camera.getParameters();
+                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+                parameters.setPictureFormat(PixelFormat.JPEG);
+                List<Camera.Size> previewSizes = parameters.getSupportedPreviewSizes();
+                List<Camera.Size> pictureSizes = parameters.getSupportedPictureSizes();
+
+                //閃光燈
+                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+                picWidth=pictureSizes.get(0).width;
+                pvHeight=previewSizes.get(0).height;
+                pvWidth=previewSizes.get(0).width;
+
+                //對焦模式參數
+                List<String> allFocus = parameters.getSupportedFocusModes();
+                 parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
+
+
+                // 設定最佳預覽尺寸
+                parameters.setPreviewSize(pvWidth, pvHeight);
+                camera.setParameters(parameters);
+
+
+
+            } catch (IOException e) {
+                _(e.toString());
+             }
 
         }
 
@@ -80,23 +107,10 @@ public class CameraView extends SurfaceView
 
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
-        _("surfaceChanged");
-        Camera.Parameters parameters=camera.getParameters();
-        parameters.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
-        parameters.setPictureFormat(PixelFormat.JPEG);
-        List<Camera.Size> previewSizes = parameters.getSupportedPreviewSizes();
-        List<Camera.Size> pictureSizes = parameters.getSupportedPictureSizes();
 
-        //閃光燈
-        parameters.setFlashMode(Camera.Parameters.FLASH_MODE_ON);
-        picHeight=pictureSizes.get(0).height;
-        picWidth=pictureSizes.get(0).width;
-        pvHeight=previewSizes.get(0).height;
-        pvWidth=previewSizes.get(0).width;
-        // 設定最佳預覽尺寸
-        parameters.setPreviewSize(pvWidth, pvHeight);
-
-
+        Timer timer=new Timer();
+        mTimerTask=new CameraTimerTask();
+        timer.schedule(mTimerTask,0,5000);
         camera.startPreview();
 
     }
@@ -117,7 +131,9 @@ public class CameraView extends SurfaceView
 
     @Override
     public void onClick(View view) {
-        camera.autoFocus(this);
+
+        continueFoucs=new ContinueFoucs();
+        camera.autoFocus(continueFoucs);
     }
 
 
@@ -131,6 +147,7 @@ public class CameraView extends SurfaceView
     Camera.PictureCallback jpeg=new Camera.PictureCallback() {
         @Override
         public void onPictureTaken(byte[] bytes, Camera camera) {
+
             if(bytes!=null)
             {
                 Bitmap picture= BitmapFactory.decodeByteArray(bytes,0,bytes.length);
@@ -153,7 +170,7 @@ public class CameraView extends SurfaceView
     private void saveBitMap(Bitmap picture) {
        index=sp.getInt("Index",0);
        File f=new File(path+index+".jpeg");
-       _(path+index+".jpeg");
+
 
 
        try {
@@ -174,10 +191,6 @@ public class CameraView extends SurfaceView
        camera.startPreview();
 
 
-
-
-
-
     }
 
 
@@ -188,6 +201,34 @@ public class CameraView extends SurfaceView
              camera.takePicture(shutter,null,jpeg);
         }
     }
+
+    public class ContinueFoucs implements Camera.AutoFocusCallback
+    {
+
+        @Override
+        public void onAutoFocus(boolean success, Camera camera) {
+            if(success)
+            {
+                camera.takePicture(shutter,null,jpeg);
+            }
+        }
+    }
+
+    class CameraTimerTask extends TimerTask {
+
+        @Override
+        public void run() {
+            // TODO Auto-generated method stub
+            if(camera != null)
+            {
+                camera.autoFocus(continueFoucs);
+            }
+
+        }
+
+    }
+
+
 }
 
 
